@@ -28,18 +28,6 @@ class Market(enum.Enum):
     president = "president"
     whole_foods = "whole_foods"
 
-
-class User(db.Model):
-    __tablename__ = 'user'
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=False, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    profile = db.relationship("Profile", uselist=False, back_populates="user")
-
-    def __repr__(self):
-         return '<User %r>' % self.username
-
-
 class Profile(db.Model):
     __tablename__ = 'profile'
     id = db.Column(db.Integer, primary_key=True)
@@ -53,21 +41,55 @@ class Profile(db.Model):
     def __repr__(self):
          return '<Profile %r>' % self.id
 
+
+    def serializeProfiles(self):
+            return {
+             "id": self.id,
+             "peso": self.peso,
+             "talla": self.talla,
+             "alergia": self.alergia,
+             "user_id": self.user_id
+            }
+
+
+class User(db.Model):
+    __tablename__ = 'user'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=False, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(25), unique=False, nullable=False)
+    profile = db.relationship("Profile", uselist=False, back_populates="user")
+
+    def __repr__(self):
+         return '<User %r>' % self.username
+
+    def serializeUsers(self):
+        return {
+            "id":self.id,
+            "username": self.username,
+            "email": self.email,
+            # "profile":   (lambda x: x.serializeProfiles(), self.profile)
+            "profile": self.profile.serializeProfiles()
+}
+
+
+
 class Stock(db.Model):
     __tablename__ = 'stock'
     id=db.Column(db.Integer, primary_key=True)
     id_profile = db.Column(db.Integer, db.ForeignKey('profile.id'))
-    # id_ingrediente = db.Column(db.Integer, db.ForeignKey('ingrediente.id'))
-    quantity = db.Column(db.Float, nullable=False)
-'''
-class Receta_Ingrediente(db.Model):
-    __tablename__ = 'receta_ingrediente'
-    id=db.Column(db.Integer, primary_key=True)
-    id_receta = db.Column(db.Integer, db.ForeignKey('receta.id'))
     id_ingrediente = db.Column(db.Integer, db.ForeignKey('ingrediente.id'))
     quantity = db.Column(db.Float, nullable=False)
-    messurment = db.Column(db.Enum(Messurments), nullable=False)
-'''
+
+
+    def serializeStocks(self):
+            return {
+             "id": self.id,
+             "id_profile": self.id_profile,
+             "id_ingrediente": self.id_ingrediente,
+             "quantity": self.quantity
+            }
+
 
 class Receta(db.Model):
     __tablename__ = 'receta'
@@ -76,9 +98,22 @@ class Receta(db.Model):
     calory = db.Column(db.Integer, nullable=False)
     image = db.Column(db.String(80), unique=False, nullable=False)
     # autor = db.Column(db.Integer, db.ForeignKey('profile.id'), nullable=True)
-    relacion = db.relationship('Ingrediente', secondary=tags, backref=db.backref('ingredientes', lazy='dynamic'))
+    guianew = db.Column(db.Text(), unique=False, nullable=False)
+    ingrediente = db.relationship('Ingrediente', secondary=tags, backref=db.backref('newTags', lazy='dynamic'))
     def __repr__(self):
          return '<Receta %r>' % self.name
+
+    def serializeReceta(self):
+            return {
+             "id": self.id,
+             "name": self.name,
+             "calory": self.calory,
+             "guianew": self.guianew,
+             #"prices": self.prices,
+             "ingredientesTemp": list(map(lambda x: x.serializeIngrediente(), self.ingrediente)),
+
+            }
+
 
 class Ingrediente(db.Model):
     __tablename__ = 'ingrediente'
@@ -86,11 +121,22 @@ class Ingrediente(db.Model):
     name = db.Column(db.String(80), unique=True, nullable=False)
     category = db.Column(db.Enum(Category), nullable=False)
     calory = db.Column(db.Integer, nullable=False)
+#    receta = db.relationship('Receta', secondary=tags, backref='ingrediente')
     prices = db.relationship("Price", backref="ingrediente")
-    # stock = db.relationship("Stock", back_populates="id_ingrediente")
+    stock = db.relationship("Stock", backref="ingrediente")
 
     def __repr__(self):
          return '<Ingrediente %r>' % self.name
+
+    def serializeIngrediente(self):
+            return {
+             "id": self.id,
+             "name": self.name,
+             "calory": self.calory,
+             #"prices": self.prices,
+             "stocksTemp": list(map(lambda x: x.serializeStocks(), self.stock)),
+             "preciosTemp": list(map(lambda x: x.serializePrecios(), self.prices)),
+            }
 
 class Price(db.Model):
     __tablename__ = 'price'
@@ -101,3 +147,12 @@ class Price(db.Model):
 
     def __repr__(self):
          return '<Price %r>' % self.market_name
+
+
+    def serializePrecios(self):
+            return {
+             "id": self.id,
+             "market_name": self.market_name.name,
+             "price": self.price,
+             "id_ingrediente": self.id_ingrediente
+            }
